@@ -34,10 +34,12 @@ def main():
     parser.add_argument('--k', type=int, required=True, help='Number of top paths to return')
     parser.add_argument('--n_steps', type=int, required=True, help='Number of steps in the search')
     parser.add_argument('--strategy', type=str, default='tree', help='Search strategy to use (default: tree)')
+    parser.add_argument('--n_workers', type=int, default=16, help='Number of parallel workers (default: 16)')
     args = parser.parse_args()
     k = args.k
     n_steps = args.n_steps
     strategy = args.strategy
+    n_workers = args.n_workers
 
     # Set multiprocessing start method based on OS
     system = platform.system()
@@ -69,7 +71,7 @@ def main():
     start_time = time.time()
 
     # Run in parallel with tqdm progress tracking
-    with mp.Pool(processes=8, initializer=init_worker, initargs=(search_obj,)) as pool:
+    with mp.Pool(processes=n_workers, initializer=init_worker, initargs=(search_obj,)) as pool:
         results = list(tqdm(pool.imap_unordered(run_search, search_args), total=len(search_args)))
 
     # Save results

@@ -37,6 +37,7 @@ def main():
     parser.add_argument('--beta', type=float, default=1.0, help='Inverse temperature for Gibbs sampling (default: 1.0)')
     parser.add_argument('--blend', type=int, default=2, help='Number of WT centroids to blend (default: 2)')
     parser.add_argument('--threshold', type=float, default=0.4, help='Threshold coverage (default: 0.4)')
+    parser.add_argument('--n_workers', type=int, default=16, help='Number of parallel workers (default: 16)')
     args = parser.parse_args()
 
     n_paths = args.n_paths
@@ -44,6 +45,7 @@ def main():
     beta = args.beta
     blend = args.blend
     threshold = args.threshold
+    n_workers = args.n_workers
 
     system = platform.system()
     if system == 'Darwin':
@@ -71,7 +73,7 @@ def main():
 
     start_time = time.time()
 
-    with mp.Pool(processes=8, initializer=init_worker, initargs=(search_obj,)) as pool:
+    with mp.Pool(processes=n_workers, initializer=init_worker, initargs=(search_obj,)) as pool:
         results = list(tqdm(pool.imap_unordered(run_probabilistic_search, search_args), total=len(search_args)))
 
     # Save results
@@ -79,7 +81,7 @@ def main():
     print(f"\nTotal runtime: {elapsed:.2f} seconds")
 
     search_df = pd.concat([search_to_df(r) for r in results], ignore_index=True)
-    output_path = f'../data_and_models/probabilistic_search_results_paths{n_paths}_steps{n_steps}_b{beta}_blend{blend}_thr{threshold}.pkl'
+    output_path = f'../data_and_models/probabilistic_search_results_paths{n_paths}_steps{n_steps}.pkl'
     search_df.to_pickle(output_path)
     print(f"Results saved to {output_path}")
 
