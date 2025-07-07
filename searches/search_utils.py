@@ -93,7 +93,7 @@ class AverageCellPerturbationSearch:
                     strategy: str = 'beam',
                     n_steps: int = 5,
                     k: int = 10,
-                    threshold: float = 0.4,
+                    threshold: float = 0.5,
                     blend: int = 2):
         """
         Performs a path search using one of several selectable strategies.
@@ -224,7 +224,7 @@ class AverageCellPerturbationSearch:
         n_steps: int = 5,
         beta: float = 1.0,
         blend: int = 2,               # how many WT centroids to blend
-        threshold: float = 0.4        # same meaning as in k-path
+        threshold: float = 0.5        # same meaning as in k-path
     ):
         """
         Monte-Carlo search that:
@@ -368,7 +368,7 @@ class AverageCellPerturbationSearch:
     def search_path_dqn(self, search_id: str, starting_cl: str, ending_cl: str, 
                         q_network: nn.Module, device: torch.device, 
                         strategy: str = 'beam',
-                        n_steps: int = 8, k: int = 10, threshold: float = 0.4, blend: int = 2):
+                        n_steps: int = 8, k: int = 10, threshold: float = 0.5, blend: int = 2):
         """
         Performs a k-path search guided by a trained DQN model, using a selectable strategy.
 
