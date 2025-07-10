@@ -36,7 +36,7 @@ def main():
     parser.add_argument('--n_steps', type=int, required=True, help='Max number of steps per path (default: 5)')
     parser.add_argument('--beta', type=float, default=1.0, help='Inverse temperature for Gibbs sampling (default: 1.0)')
     parser.add_argument('--blend', type=int, default=2, help='Number of WT centroids to blend (default: 2)')
-    parser.add_argument('--threshold', type=float, default=0.4, help='Threshold coverage (default: 0.4)')
+    parser.add_argument('--threshold', type=float, default=0.5, help='Threshold coverage (default: 0.5)')
     parser.add_argument('--n_workers', type=int, default=16, help='Number of parallel workers (default: 16)')
     args = parser.parse_args()
 

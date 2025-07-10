@@ -18,14 +18,15 @@ def init_worker(search_obj):
 
 # Core search function used in each worker
 def run_search(args):
-    sid, start, end, k, n_steps, strategy = args
+    sid, start, end, k, n_steps, strategy, threshold = args
     return worker_search.search_path_k_paths(
         search_id=sid,
         starting_cl=start,
         ending_cl=end,
         strategy=strategy,
         n_steps=n_steps,
-        k=k
+        k=k,
+        threshold=threshold
     )
 
 def main():
@@ -34,12 +35,15 @@ def main():
     parser.add_argument('--k', type=int, required=True, help='Number of top paths to return')
     parser.add_argument('--n_steps', type=int, required=True, help='Number of steps in the search')
     parser.add_argument('--strategy', type=str, default='tree', help='Search strategy to use (default: tree)')
+    parser.add_argument('--threshold', type=float, default=0.5, help='Threshold coverage (default: 0.5)')
     parser.add_argument('--n_workers', type=int, default=16, help='Number of parallel workers (default: 16)')
     args = parser.parse_args()
     k = args.k
     n_steps = args.n_steps
     strategy = args.strategy
+    threshold = args.threshold
     n_workers = args.n_workers
+
 
     # Set multiprocessing start method based on OS
     system = platform.system()
@@ -64,7 +68,7 @@ def main():
         for end_cl in search_obj.cell_lines:
             if start_cl == end_cl:
                 continue
-            search_args.append((search_id, start_cl, end_cl, k, n_steps, strategy))
+            search_args.append((search_id, start_cl, end_cl, k, n_steps, strategy, threshold))
             search_id += 1
 
     # Time the full execution
