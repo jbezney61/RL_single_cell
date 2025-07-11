@@ -1,0 +1,23 @@
+#!/bin/bash
+#SBATCH --job-name="prob_p_800_n_5"
+#SBATCH --account=3126294
+#SBATCH --partition=compute
+#SBATCH --nodelist=cnode07
+#SBATCH --cpus-per-task=16
+#SBATCH --mem=50GB
+#SBATCH --time=10:00:00
+
+# --- Set the working directory to where your k_search.py file is ---
+#SBATCH --chdir=/home/3126294/RL/RL_single_cell/searches
+
+# --- Use unique log files for each job run ---
+#SBATCH --output=/home/3126294/RL/outputs/prob_search_p800_n5.out
+#SBATCH --error=/home/3126294/RL/outputs/prob_search_p800_n5.err
+
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=carlo.ruggeri@studbocconi.it
+
+# --- Run your python script using the absolute path to the conda environment's python ---
+/home/3126294/miniconda3/envs/average_search_env/bin/python prob_search.py --n_paths 800 --n_steps 5 
+
+echo "Job finished."
