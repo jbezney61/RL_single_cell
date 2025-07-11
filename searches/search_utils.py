@@ -368,7 +368,7 @@ class AverageCellPerturbationSearch:
     def search_path_dqn(self, search_id: str, starting_cl: str, ending_cl: str, 
                         q_network: nn.Module, device: torch.device, 
                         strategy: str = 'beam',
-                        n_steps: int = 8, k: int = 10, threshold: float = 0.5, blend: int = 2):
+                        n_steps: int = 8, k: int = 5, threshold: float = 0.5, blend: int = 2):
         """
         Performs a k-path search guided by a trained DQN model, using a selectable strategy.
 

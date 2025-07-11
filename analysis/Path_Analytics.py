@@ -218,24 +218,24 @@ def plot_path_and_conversion_stats(
     axes : dict[str, matplotlib.axes.Axes]
         Mapping of panel names to Axes objects.
     """
-
+    drug_matrix_cleaned = drug_matrix.copy()
     #clean column names in drug_matrix
-    column_names = drug_matrix.columns.tolist()
+    column_names = drug_matrix_cleaned.columns.tolist()
     column_names = [c.split(' (')[0] for c in column_names]
-    drug_matrix.columns = column_names
+    drug_matrix_cleaned.columns = column_names
 
     # ------------------------------------------------------------------
     # 0) Identify drug columns
     # ------------------------------------------------------------------
-    drug_cols = [c for c in drug_matrix.columns if c != conversion_col]
+    drug_cols = [c for c in drug_matrix_cleaned.columns if c != conversion_col]
 
     # ------------------------------------------------------------------
     # 1) Histograms
     # ------------------------------------------------------------------
-    total_drugs = drug_matrix[drug_cols].sum(axis=1)
+    total_drugs = drug_matrix_cleaned[drug_cols].sum(axis=1)
 
     conversion_counts = (
-        drug_matrix[conversion_col]
+        drug_matrix_cleaned[conversion_col]
         .value_counts()
         .rename_axis(conversion_col)
         .reset_index(name="count")["count"]
@@ -246,7 +246,7 @@ def plot_path_and_conversion_stats(
     # ------------------------------------------------------------------
     # 2a. Overall frequency across *all* paths
     all_freq = (
-        drug_matrix.set_index(conversion_col)[drug_cols]
+        drug_matrix_cleaned.set_index(conversion_col)[drug_cols]
         .sum()
         .sort_values(ascending=False)
         .head(top_n)
@@ -256,7 +256,7 @@ def plot_path_and_conversion_stats(
 
     # 2b. Presence/absence per conversion (unique conversions)
     unique_conv = (
-        drug_matrix.groupby(conversion_col)[drug_cols]
+        drug_matrix_cleaned.groupby(conversion_col)[drug_cols]
         .sum()
         .applymap(lambda x: 1 if x > 0 else 0)
         .sum()

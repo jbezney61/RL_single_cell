@@ -3,12 +3,25 @@ import pickle
 import multiprocessing as mp
 from rl_utils import DQNTrainer
 from search_utils import AverageCellPerturbationSearch
+import random
+import torch
+import numpy as np
+
+
+def set_seeds(seed_value=43):
+    random.seed(seed_value)
+    np.random.seed(seed_value)
+    torch.manual_seed(seed_value)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed_value)
+
 
 def main():
+    set_seeds()
     parser = argparse.ArgumentParser()
     parser.add_argument('--target', type=str, required=True, help='Target cell line')
-    parser.add_argument('--episodes', type=int, default=5000)
-    parser.add_argument('--max_steps', type=int, default=6)
+    parser.add_argument('--episodes', type=int, default=10000)
+    parser.add_argument('--max_steps', type=int, default=5)
     args = parser.parse_args()
 
     # Load data
@@ -30,10 +43,10 @@ def main():
         'GAMMA': 0.99,
         'EPSILON_START': 1.0,
         'EPSILON_END': 0.05,
-        'EPSILON_DECAY_EPISODES': 7000,
-        'TOTAL_TRAINING_EPISODES': 10000,
+        'EPSILON_DECAY_EPISODES': int(0.9 * args.episodes),
+        'TOTAL_TRAINING_EPISODES': args.episodes,
         'TARGET_UPDATE_FREQUENCY': 20,
-        'MAX_PATH_STEPS': 8,
+        'MAX_PATH_STEPS': args.max_steps,
     }
 
     trainer = DQNTrainer(env, hparams)
