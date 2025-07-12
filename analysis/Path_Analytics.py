@@ -220,9 +220,9 @@ def plot_path_and_conversion_stats(
     """
     drug_matrix_cleaned = drug_matrix.copy()
     #clean column names in drug_matrix
-    column_names = drug_matrix_cleaned.columns.tolist()
-    column_names = [c.split(' (')[0] for c in column_names]
-    drug_matrix_cleaned.columns = column_names
+    #column_names = drug_matrix_cleaned.columns.tolist()
+    #column_names = [c.split(' (')[0] for c in column_names]
+    #drug_matrix_cleaned.columns = column_names
 
     # ------------------------------------------------------------------
     # 0) Identify drug columns
@@ -258,7 +258,7 @@ def plot_path_and_conversion_stats(
     unique_conv = (
         drug_matrix_cleaned.groupby(conversion_col)[drug_cols]
         .sum()
-        .applymap(lambda x: 1 if x > 0 else 0)
+        .map(lambda x: 1 if x > 0 else 0)
         .sum()
         .sort_values(ascending=False)
         .head(top_n)
