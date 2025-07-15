@@ -28,7 +28,7 @@ def main():
     with open('../data_and_models/cleaned_data.pkl', 'rb') as f:
         df = pickle.load(f)
 
-    with open('conversion_dict.pkl', 'rb') as f:
+    with open('../data_and_models/conversion_dict.pkl', 'rb') as f:
         conversion_dict = pickle.load(f)
     
     starting_cls = conversion_dict[args.target]

@@ -1,0 +1,20 @@
+name: tahoe_100_rl
+channels:
+  - pytorch
+  - nvidia # Add nvidia channel for CUDA toolkit
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.9
+  - pandas
+  - datasets
+  - ipykernel
+  - scikit-learn
+  - scipy
+  - matplotlib
+  - seaborn
+  - pytorch
+  - torchvision
+  - torchaudio
+  - pytorch-cuda=12.3 # <-- This now matches the loaded module
+
