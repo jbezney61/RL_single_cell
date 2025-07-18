@@ -8,6 +8,7 @@ import random
 from collections import namedtuple
 from tqdm import trange
 from search_utils import AverageCellPerturbationSearch
+import pathlib
 
 Experience = namedtuple('Experience', ('state', 'action', 'reward', 'next_state', 'done'))
 
@@ -275,10 +276,25 @@ class DQNTrainer:
                 # Save the model only if the AVERAGE performance has improved
                 if avg_test_metric < best_avg_greedy_metric:
                     best_avg_greedy_metric = avg_test_metric
+
+                    # --- PATH CORRECTION FOR SAVING ---
+                    # 1. Get the directory where this script (e.g., rl_utils.py) is located
+                    script_dir = pathlib.Path(__file__).parent
+                    
+                    # 2. Build the correct, absolute path to the 'data_and_models' directory
+                    save_dir = script_dir.parent / 'data_and_models'
+                    
+                    # 3. Create the directory if it doesn't exist (this is crucial)
+                    save_dir.mkdir(parents=True, exist_ok=True)
+                    
+                    # 4. Define the full path for the model file
+                    model_path = save_dir / f'dqn_model_{target_cl}.pth'
+                    # --- END CORRECTION ---
+
                     # Save the model that achieved this new best average performance
-                    model_path = f'../data_and_models/dqn_model_{target_cl}.pth'
                     torch.save(self.policy_net.state_dict(), model_path)
                     print(f"  ** New best model saved to '{model_path}' with avg metric: {best_avg_greedy_metric:.4f} **\n")
+
 
         print("\n--- Training Finished ---")
 

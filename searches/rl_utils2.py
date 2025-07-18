@@ -8,6 +8,7 @@ import random
 from collections import namedtuple
 from tqdm import trange
 from search_utils import AverageCellPerturbationSearch
+import pathlib
 
 Experience = namedtuple('Experience', ('state', 'action', 'reward', 'next_state', 'done'))
 
@@ -222,7 +223,21 @@ class DQNTrainer:
                 
                 if avg_test_metric < best_avg_greedy_metric:
                     best_avg_greedy_metric = avg_test_metric
-                    model_path = f'../data_and_models/dqn_model_{target_cl}_fold{fold_num}.pth'
+                    
+                    # --- PATH CORRECTION FOR SAVING ---
+                    # 1. Get the directory where this script is located
+                    script_dir = pathlib.Path(__file__).parent
+                    
+                    # 2. Build the correct path to the save directory
+                    save_dir = script_dir.parent / 'data_and_models'
+                    
+                    # 3. Ensure the directory exists
+                    save_dir.mkdir(parents=True, exist_ok=True)
+                    
+                    # 4. Define the full path for the model file for this specific fold
+                    model_path = save_dir / f'dqn_model_{target_cl}_fold{fold_num}.pth'
+                    # --- END CORRECTION ---
+                    
                     torch.save(self.policy_net.state_dict(), model_path)
                     trange_desc += " (New best model saved!)"
                 
