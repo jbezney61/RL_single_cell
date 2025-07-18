@@ -6,6 +6,7 @@ from search_utils import AverageCellPerturbationSearch
 import random
 import torch
 import numpy as np
+import pathlib
 
 
 def set_seeds(seed_value=43):
@@ -24,12 +25,23 @@ def main():
     parser.add_argument('--max_steps', type=int, default=5)
     args = parser.parse_args()
 
-    # Load data
-    with open('../data_and_models/cleaned_data.pkl', 'rb') as f:
-        df = pickle.load(f)
+    script_dir = pathlib.Path(__file__).parent
+    data_dir = script_dir.parent / 'data_and_models'
+    
+    cleaned_data_path = data_dir / 'cleaned_data.pkl'
+    conversion_dict_path = data_dir / 'conversion_dict.pkl'
+    # --- PATH CORRECTION END ---
 
-    with open('../data_and_models/conversion_dict.pkl', 'rb') as f:
+    # Load data using the corrected paths
+    print(f"Loading data from: {cleaned_data_path}")
+    with open(cleaned_data_path, 'rb') as f:
+        df = pickle.load(f)
+    print("Successfully loaded cleaned_data.pkl.")
+
+    print(f"Loading conversion dict from: {conversion_dict_path}")
+    with open(conversion_dict_path, 'rb') as f:
         conversion_dict = pickle.load(f)
+    print("Successfully loaded conversion_dict.pkl.")
     
     starting_cls = conversion_dict[args.target]
 

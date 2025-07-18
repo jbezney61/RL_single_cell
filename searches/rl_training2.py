@@ -6,6 +6,7 @@ from sklearn.cluster import KMeans
 import pickle
 import random
 import argparse # Used for command-line arguments
+import pathlib
 
 # Import your custom classes from the .py files
 # Make sure these files are in the same directory or your Python path
@@ -54,13 +55,24 @@ def main():
 
     # --- 3. Initialize Environment and Trainer ---
     try:
-        with open('../data_and_models/cleaned_data.pkl', 'rb') as f:
-            df = pickle.load(f)
-        print("Cleaned data loaded successfully.")
+
+        script_dir = pathlib.Path(__file__).parent
+        data_dir = script_dir.parent / 'data_and_models'
         
-        with open('../data_and_models/conversion_dict.pkl', 'rb') as f:
+        cleaned_data_path = data_dir / 'cleaned_data.pkl'
+        conversion_dict_path = data_dir / 'conversion_dict.pkl'
+        # --- PATH CORRECTION END ---
+
+        # Load data using the corrected paths
+        print(f"Loading data from: {cleaned_data_path}")
+        with open(cleaned_data_path, 'rb') as f:
+            df = pickle.load(f)
+        print("Successfully loaded cleaned_data.pkl.")
+
+        print(f"Loading conversion dict from: {conversion_dict_path}")
+        with open(conversion_dict_path, 'rb') as f:
             conversion_dict = pickle.load(f)
-        print("Conversion dictionary loaded successfully.")
+        print("Successfully loaded conversion_dict.pkl.")
 
         # Initialize the search environment from the data
         search_env = AverageCellPerturbationSearch(df)
