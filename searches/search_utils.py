@@ -365,34 +365,22 @@ class AverageCellPerturbationSearch:
         }
     
 
-    def search_path_dqn(self, search_id: str, starting_cl: str, ending_cl: str, 
-                        q_network: nn.Module, device: torch.device, 
-                        strategy: str = 'beam',
-                        n_steps: int = 8, k: int = 5, threshold: float = 0.5, blend: int = 2):
-        """
-        Performs a k-path search guided by a trained DQN model, using a selectable strategy.
+    def _one_hot_encode_steps(self, steps_remaining: int, max_steps: int) -> np.ndarray:
+        """Helper to create a one-hot vector for steps remaining."""
+        one_hot = np.zeros(max_steps)
+        if steps_remaining > 0:
+            one_hot[steps_remaining - 1] = 1
+        return one_hot
 
-        Args:
-            search_id (str): A unique identifier for this search.
-            starting_cl (str): The starting cell line.
-            ending_cl (str): The target cell line.
-            q_network (nn.Module): The trained PyTorch Q-network model.
-            device (torch.device): The device ('mps' or 'cpu') the model should run on.
-            strategy (str): The search strategy to use. One of:
-                            'beam' -> Expands all options, then prunes the entire pool to k.
-                            'tree' -> Each path expands its own top k, without pruning the total.
-                            Defaults to 'beam'.
-            n_steps (int): The maximum number of steps (drugs) in a path.
-            k (int): The beam width or branching factor.
-            threshold (float): The progress threshold for recording paths.
-            blend (int): The number of nearest WT centroids to blend for displacement.
+    def search_path_dqn(self, search_id: str, starting_cl: str, ending_cl: str, 
+                            q_network: nn.Module, device: torch.device, 
+                            strategy: str = 'beam',
+                            n_steps: int = 8, k: int = 5, threshold: float = 0.5, blend: int = 2):
+        """
+        Performs a k-path search guided by a trained DQN model.
         """
         # --- 1. SETUP ---
         q_network.eval() 
-
-        # Warning for the computationally expensive tree search
-        if strategy == 'tree' and k**n_steps > 100000:
-            print(f"WARNING: Tree search with k={k} and n_steps={n_steps} will explore up to {k**n_steps} paths, which may be very slow or run out of memory.")
 
         start = self.centroids[starting_cl]
         end = self.centroids[ending_cl]
@@ -401,6 +389,7 @@ class AverageCellPerturbationSearch:
         init_dist = np.linalg.norm(start - end)
         progress_threshold = (1 - threshold) * init_dist
 
+        # Path format: (position, drug_list, drug_set, gene_list, distance, cell_path, q_value_sum)
         paths = [(start, [], set(), [], init_dist, [], 0.0)]
         seen_paths, best_at_step, added_keys = [], {}, set()
 
@@ -408,8 +397,8 @@ class AverageCellPerturbationSearch:
         for step in range(n_steps + 1):
             new_paths = []
 
-            for cur_pos, ord_drugs, drug_set, gene_list, dist, cl_path, _ in paths:
-                # --- Recording Logic ---
+            for cur_pos, ord_drugs, drug_set, gene_list, dist, cl_path, q_sum in paths:
+                # --- Recording Logic (same as before) ---
                 key = self.path_key(ord_drugs, step)
                 if step != 0:
                     path_for_recording = (cur_pos, ord_drugs, drug_set, gene_list, dist, cl_path)
@@ -425,10 +414,14 @@ class AverageCellPerturbationSearch:
                 if step == n_steps:
                     continue
                 
-                # --- Guided Expansion using DQN ---
+                # --- CORRECTED: Guided Expansion using DQN ---
                 steps_remaining = n_steps - step
-                state_vec = np.hstack([cur_pos, np.array([steps_remaining])]).astype(np.float32)
+                # Create the one-hot vector for the remaining steps
+                steps_one_hot = self._one_hot_encode_steps(steps_remaining, n_steps)
+                # Combine with position to create the correct state vector
+                state_vec = np.hstack([cur_pos, steps_one_hot]).astype(np.float32)
                 state_tensor = torch.from_numpy(state_vec).unsqueeze(0).to(device)
+                
                 with torch.no_grad():
                     all_q_values = q_network(state_tensor).squeeze(0)
 
@@ -448,46 +441,36 @@ class AverageCellPerturbationSearch:
                     new_pos = cur_pos + disp
                     new_dist = np.linalg.norm(new_pos - end)
                     
+                    # We now use the Q-value from the model to score this move
                     drug_candidates.append((
                         new_pos, ord_drugs + [drug_name], drug_set | {drug_name},
                         gene_list + [self.drugs_to_genes.get(drug_name, ())],
-                        new_dist, cl_path + [wt_pair], q_value.item()
+                        new_dist, cl_path + [wt_pair], q_sum + q_value.item()
                     ))
 
-                # ====================================================================
-                # STRATEGY-DEPENDENT EXPANSION
-                # ====================================================================
+                # --- STRATEGY-DEPENDENT EXPANSION ---
                 if strategy == 'beam':
-                    # Add all valid moves from this path to the global pool
                     new_paths.extend(drug_candidates)
                 elif strategy == 'tree':
-                    # Find the top-k moves for this specific path and add them
-                    top_k_for_this_path = heapq.nlargest(k, drug_candidates, key=lambda p: p[6])
+                    # For tree search, we expand the top-k moves for *this specific path*
+                    top_k_for_this_path = heapq.nlargest(k, drug_candidates, key=lambda p: p[6]) # p[6] is the q_value
                     new_paths.extend(top_k_for_this_path)
                 else:
                     raise ValueError(f"Unknown strategy: '{strategy}'. Must be 'beam' or 'tree'.")
 
-            if not new_paths:
-                break
-                
-            if step == n_steps:
-                break
+            if not new_paths: break
+            if step == n_steps: break
             
-            # ====================================================================
-            # STRATEGY-DEPENDENT PRUNING
-            # ====================================================================
+            # --- STRATEGY-DEPENDENT PRUNING ---
             if strategy == 'beam':
-                # Prune the entire pool of candidates back down to the top k
-                paths = heapq.nlargest(k, new_paths, key=lambda p: p[6])
+                # For beam search, we prune the *entire pool* of new paths back to k
+                paths = heapq.nlargest(k, new_paths, key=lambda p: p[6]) # p[6] is the q_value
             elif strategy == 'tree':
-                # Do not prune. The number of paths grows exponentially.
                 paths = new_paths
 
-            if not paths:
-                break
+            if not paths: break
 
-        # --- 3. POST-PROCESSING AND RETURN ---
-        # (This logic is identical for both strategies)
+        # --- 3. POST-PROCESSING AND RETURN (Unchanged) ---
         for step_num, best_path_tuple in best_at_step.items():
             key = self.path_key(best_path_tuple[1], step_num)
             if key in added_keys:
@@ -503,7 +486,7 @@ class AverageCellPerturbationSearch:
                 })
                 added_keys.add(key)
 
-        df = pd.DataFrame(seen_paths)
+        df = pd.DataFrame(seen_paths) if seen_paths else pd.DataFrame()
 
         return {
             'search_id': search_id,
