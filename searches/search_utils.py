@@ -497,6 +497,67 @@ class AverageCellPerturbationSearch:
             'target_radius': end_radius, 'progress_table': df
         }
 
+
+    def eval_path_dqn(self, starting_cl: str, ending_cl: str, 
+                  q_network: nn.Module, device: torch.device, 
+                  strategy: str = 'beam', n_steps: int = 5, k: int = 5):
+        """
+        Simplified version of search_path_dqn for evaluation only.
+        Returns only the minimum distance reached during the search.
+        """
+        q_network.eval() 
+        start = self.centroids[starting_cl]
+        end = self.centroids[ending_cl]
+        all_drugs = self.drugs
+        
+        # Path format: (position, drug_set, distance, q_sum)
+        paths = [(start, set(), np.linalg.norm(start - end), 0.0)]
+        best_dist_overall = np.linalg.norm(start - end)
+
+        for step in range(n_steps):
+            new_paths = []
+            for cur_pos, drug_set, dist, q_sum in paths:
+                # 1. Prepare State for DQN
+                steps_rem = n_steps - step
+                steps_one_hot = self._one_hot_encode_steps(steps_rem, n_steps)
+                state_vec = np.hstack([cur_pos, steps_one_hot]).astype(np.float32)
+                state_tensor = torch.from_numpy(state_vec).unsqueeze(0).to(device)
+                
+                with torch.no_grad():
+                    all_q_values = q_network(state_tensor).squeeze(0)
+
+                # 2. Expand only valid drugs
+                dists, idxs = self.centroid_tree.query(cur_pos, k=2) # Default blend=2
+                weights = 1.0 / (dists + 1e-6); weights /= weights.sum()
+                centroid_wt = [(self.centroid_keys[i], w) for i, w in zip(idxs, weights)]
+
+                for action_idx, q_val in enumerate(all_q_values):
+                    drug_name = all_drugs[action_idx]
+                    if drug_name in drug_set: continue
+                    
+                    disp, _ = self.blended_disp(centroid_wt, drug_name)
+                    if disp is None: continue
+
+                    new_pos = cur_pos + disp
+                    new_dist = np.linalg.norm(new_pos - end)
+                    
+                    # Global best-dist tracker
+                    if new_dist < best_dist_overall:
+                        best_dist_overall = new_dist
+                    
+                    new_paths.append((new_pos, drug_set | {drug_name}, new_dist, q_sum + q_val.item()))
+
+            if not new_paths: break
+            
+            # 3. Pruning logic based on strategy
+            if strategy == 'beam':
+                # Beam: Top k from global pool
+                paths = heapq.nlargest(k, new_paths, key=lambda p: p[3])
+            else: # 'tree' or Greedy
+                # If k=1, this is a standard greedy path
+                paths = heapq.nlargest(k, new_paths, key=lambda p: p[3])
+
+        return best_dist_overall
             
 
 def search_to_df(search_results):

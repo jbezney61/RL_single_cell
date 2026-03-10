@@ -127,12 +127,12 @@ def plot_per_conversion_trends(
     param_name: str,
     param_regex: str,
     top_n: int = 10,
-    figsize: tuple[int, int] = (14, 22), # Increased height for new plot
+    figsize: tuple[int, int] = (10, 6), 
     show: bool = True,
 ):
     """
-    Analyzes and plots 5 per-conversion metrics, including
-    best path progress and average path length, across a parameter sweep.
+    Analyzes and plots 5 per-conversion metrics as individual figures 
+    across a parameter sweep.
     """
     all_results = []
 
@@ -168,7 +168,7 @@ def plot_per_conversion_trends(
         
         combined_metrics = pd.merge(paths_per_conv, summary_df, on='conversion')
         combined_metrics = pd.merge(combined_metrics, avg_path_length_df, on='conversion')
-        combined_metrics = pd.merge(combined_metrics, best_progress_df, on='conversion') # Merge new metric
+        combined_metrics = pd.merge(combined_metrics, best_progress_df, on='conversion')
         combined_metrics[param_name] = param_value
         all_results.append(combined_metrics)
 
@@ -184,37 +184,46 @@ def plot_per_conversion_trends(
         print("No data available to plot after filtering for top N conversions.")
         return
 
-    fig, axes = plt.subplots(5, 1, figsize=figsize, sharex=True)
-    fig.suptitle(f'Per-Conversion Performance vs. Parameter "{param_name}" (Top {top_n} Conversions)', fontsize=16)
-
-    sns.lineplot(data=plot_df, x=param_name, y='num_paths', hue='conversion', marker='o', ax=axes[0], legend='auto')
-    axes[0].set_title("Number of Successful Paths per Conversion")
-    axes[0].set_ylabel("Path Count")
-    axes[0].legend(title='Conversion', bbox_to_anchor=(1.05, 1), loc='upper left')
-
-    sns.lineplot(data=plot_df, x=param_name, y='n_clusters', hue='conversion', marker='o', ax=axes[1], legend=False)
-    axes[1].set_title("Number of Unique Solutions (Uniqueness)")
-    axes[1].set_ylabel("Cluster Count")
-
-    sns.lineplot(data=plot_df, x=param_name, y='cv_cluster_size', hue='conversion', marker='o', ax=axes[2], legend=False)
-    axes[2].set_title("Uniformity of Solutions (Lower CV is Better)")
-    axes[2].set_ylabel("Coefficient of Variation (CV)")
+    # --- Plotting Individual Graphs ---
     
-    sns.lineplot(data=plot_df, x=param_name, y='avg_path_length', hue='conversion', marker='o', ax=axes[3], legend=False)
-    axes[3].set_title("Path Efficiency (Lower is Better)")
-    axes[3].set_ylabel("Average Path Length")
+    # List of (Column, Title, Y-Label)
+    metrics_to_plot = [
+        ('num_paths', 'Total Successful Paths', 'Path Count'),
+        ('n_clusters', 'Solution Uniqueness', 'Cluster Count'),
+        ('cv_cluster_size', 'Solution Uniformity', 'Coefficient of Variation (CV)'),
+        ('avg_path_length', 'Average Path Length', 'Average Path Length'),
+        ('best_path_progress', 'Best Path Progress', 'Best Progress (%)')
+    ]
 
-    sns.lineplot(data=plot_df, x=param_name, y='best_path_progress', hue='conversion', marker='o', ax=axes[4], legend=False)
-    axes[4].set_title("Best Path Quality (Higher is Better)")
-    axes[4].set_ylabel("Best Progress (%)")
-    axes[4].set_xlabel(f"Parameter: {param_name}")
+    for col_y, title, label_y in metrics_to_plot:
+        plt.figure(figsize=figsize)
+        
+        sns.lineplot(
+            data=plot_df, 
+            x=param_name, 
+            y=col_y, 
+            hue='conversion', 
+            marker='o'
+        )
+        
+        plt.title(f'{title} vs. {param_name} (Top {top_n} Conversions)', fontsize=14)
+        plt.ylabel(label_y)
+        plt.xlabel(param_name)
+        
+        # Move the legend outside to the right
+        plt.legend(title='Conversion', bbox_to_anchor=(1.05, 1), loc='upper left')
+        
+        plt.tight_layout()
+        
+        # Optional: Save each plot automatically
+        # plt.savefig(f"{col_y}_vs_{param_name}.pdf", bbox_inches='tight')
+        
+        if show:
+            plt.show()
+        else:
+            plt.close() # Close to save memory if not showing
 
-    fig.tight_layout(rect=[0, 0, 0.85, 0.96])
-    if show:
-        plt.show()
-
-    return full_results_df, fig, axes
-
+    return full_results_df
 
 ############################################
 # Pairwise Parameter Comparison (6 metrics)
@@ -224,14 +233,13 @@ def plot_pairwise_parameter_comparison(
     file_paths: list[str],
     param_name: str,
     param_regex: str,
-    figsize: tuple[int, int] = (36, 5), # MODIFIED: Increased width for new plot
+    figsize: tuple[int, int] = (8, 6), # Standard size for individual heatmaps
     show: bool = True,
 ):
     """
-    Creates heatmaps to show pairwise "win percentages" for 6 metrics. # MODIFIED
+    Analyzes and plots 6 pairwise comparison matrices as individual figures.
     """
     all_results = []
-    # NEW: Dictionary to store the number of conversions found for each parameter value
     conversions_per_param = {}
 
     for path in tqdm(sorted(file_paths), desc="Analyzing files"):
@@ -247,16 +255,12 @@ def plot_pairwise_parameter_comparison(
         
         df = df[df['covered_threshold'] == True].copy()
         if df.empty:
-            # NEW: Still record a zero count if the file is empty after filtering
             conversions_per_param[param_value] = 0
             continue
             
         df["conversion"] = df["starting_cl"].astype(str) + ":" + df["target_cl"].astype(str)
-        
-        # NEW: Calculate and store the number of unique conversions found for this parameter value
         conversions_per_param[param_value] = df['conversion'].nunique()
 
-        # --- The rest of the loop calculates the per-conversion metrics ---
         df['path_length'] = df['drug_sequence'].apply(len)
         avg_path_length_df = df.groupby('conversion')['path_length'].mean().reset_index()
         avg_path_length_df.rename(columns={'path_length': 'avg_path_length'}, inplace=True)
@@ -285,8 +289,8 @@ def plot_pairwise_parameter_comparison(
     param_values = sorted(full_results_df[param_name].unique())
     n_params = len(param_values)
 
-    # MODIFIED: Initialize 6 matrices
-    n_conv_matrix = np.zeros((n_params, n_params)) # NEW
+    # Initialize matrices
+    n_conv_matrix = np.zeros((n_params, n_params))
     paths_matrix = np.zeros((n_params, n_params))
     clusters_matrix = np.zeros((n_params, n_params))
     cv_matrix = np.zeros((n_params, n_params))
@@ -296,10 +300,7 @@ def plot_pairwise_parameter_comparison(
     for i, p1 in enumerate(param_values):
         for j, p2 in enumerate(param_values):
             if i == j: continue
-
-            # NEW: Directly compare the number of conversions found for p1 and p2
             n_conv_matrix[i, j] = conversions_per_param[p1] - conversions_per_param[p2]
-
             df1 = full_results_df[full_results_df[param_name] == p1]
             df2 = full_results_df[full_results_df[param_name] == p2]
             
@@ -316,57 +317,55 @@ def plot_pairwise_parameter_comparison(
                 cv_matrix[i, j] = (inner_merged_df['cv_cluster_size_p1'] < inner_merged_df['cv_cluster_size_p2']).sum() / total_common * 100
                 length_matrix[i, j] = (inner_merged_df['avg_path_length_p1'] < inner_merged_df['avg_path_length_p2']).sum() / total_common * 100
 
-    # MODIFIED: Changed to 6 subplots
-    fig, axes = plt.subplots(1, 6, figsize=figsize) 
-    fig.suptitle(f'Pairwise Performance Comparison for Parameter "{param_name}"', fontsize=16)
-    
+    # Configuration for individual plots
     param_labels = [f"{p:.0f}" for p in param_values]
-
-    sns.heatmap(paths_matrix, annot=True, fmt=".1f", cmap="YlOrRd", xticklabels=param_labels, yticklabels=param_labels, ax=axes[0])
-    axes[0].set_title("% where Row > Col\n(# of Paths)")
-    axes[0].set_xlabel(f"{param_name}"); axes[1].set_ylabel(f"{param_name}")
-
-    # NEW: Plot for number of conversions found
-    sns.heatmap(n_conv_matrix, annot=True, fmt=".0f", cmap="vlag", xticklabels=param_labels, yticklabels=param_labels, ax=axes[1])
-    axes[1].set_title("Row - Col\n(# of Conversions Found)")
-    axes[1].set_xlabel(f"{param_name}"); axes[0].set_ylabel(f"{param_name}")
-
-    sns.heatmap(clusters_matrix, annot=True, fmt=".1f", cmap="YlOrRd", xticklabels=param_labels, yticklabels=param_labels, ax=axes[2])
-    axes[2].set_title("% where Row > Col\n(# of Clusters - Common Only)")
-    axes[2].set_xlabel(f"{param_name}"); axes[2].set_ylabel(f"{param_name}")
-
-    sns.heatmap(cv_matrix, annot=True, fmt=".1f", cmap="YlOrRd", xticklabels=param_labels, yticklabels=param_labels, ax=axes[3])
-    axes[3].set_title("% where Row < Col\n(Uniformity CV - Common Only)")
-    axes[3].set_xlabel(f"{param_name}"); axes[3].set_ylabel(f"{param_name}")
     
-    sns.heatmap(length_matrix, annot=True, fmt=".1f", cmap="YlOrRd", xticklabels=param_labels, yticklabels=param_labels, ax=axes[4])
-    axes[4].set_title("% where Row < Col\n(Avg Path Length - Common Only)")
-    axes[4].set_xlabel(f"{param_name}"); axes[4].set_ylabel(f"{param_name}")
-    
-    sns.heatmap(best_progress_matrix, annot=True, fmt=".1f", cmap="YlOrRd", xticklabels=param_labels, yticklabels=param_labels, ax=axes[5])
-    axes[5].set_title("% where Row > Col\n(Best Path Quality)")
-    axes[5].set_xlabel(f"{param_name}"); axes[5].set_ylabel(f"{param_name}")
+    plot_configs = [
+        (paths_matrix, "% where Row > Col\n(Total Successful Paths)", "YlOrRd", ".1f"),
+        (n_conv_matrix, "Row - Col\n(Unique Task Coverage)", "vlag", ".0f"),
+        (clusters_matrix, "% where Row > Col\n(Solution Uniqueness - Common)", "YlOrRd", ".1f"),
+        (cv_matrix, "% where Row < Col\n(Solution Uniformity CV - Common)", "YlOrRd", ".1f"),
+        (length_matrix, "% where Row < Col\n(Average Path Length - Common)", "YlOrRd", ".1f"),
+        (best_progress_matrix, "% where Row > Col\n(Best Path Progress)", "YlOrRd", ".1f")
+    ]
 
-    fig.tight_layout(rect=[0, 0, 1, 0.92])
-    if show:
-        plt.show()
+    for matrix, title, cmap, fmt in plot_configs:
+        plt.figure(figsize=figsize)
+        sns.heatmap(
+            matrix, 
+            annot=True, 
+            fmt=fmt, 
+            cmap=cmap, 
+            xticklabels=param_labels, 
+            yticklabels=param_labels,
+            center=0 if cmap=="vlag" else None
+        )
+        plt.title(title, fontsize=14)
+        plt.xlabel(param_name)
+        plt.ylabel(param_name)
+        plt.tight_layout()
+        
+        if show:
+            plt.show()
+        else:
+            plt.close()
 
-    return fig, axes
+    return full_results_df
 
 
 ############################################
-# Algorithm Efficiency Comparison (6 metrics)
+# Algorithm Efficiency Comparison (7 metrics)
 ############################################
 
 def plot_algorithm_efficiency(
     file_paths: list[str],
     times_csv_path: str,
-    figsize: tuple[int, int] = (14, 28), # Increased height for new plot
+    figsize: tuple[int, int] = (10, 6),
     show: bool = True,
 ):
     """
-    Generates scatter plots comparing algorithm efficiency for 5 metrics,
-    including median best path progress.
+    Generates individual scatter plots comparing algorithm efficiency across 
+    7 metrics relative to computation time.
     """
     all_metrics = []
     
@@ -379,7 +378,6 @@ def plot_algorithm_efficiency(
 
     for path in tqdm(file_paths, desc="Calculating metrics"):
         filename = os.path.basename(path)
-        
         k_val, n_paths_val, strategy = None, None, None
         
         if 'tree' in filename:
@@ -410,6 +408,7 @@ def plot_algorithm_efficiency(
 
         num_conversions_found = df['conversion'].nunique()
         total_paths = len(df)
+        
         df['path_length'] = df['drug_sequence'].apply(len)
         avg_path_length_df = df.groupby('conversion')['path_length'].mean().reset_index()
         median_path_length = avg_path_length_df['path_length'].median()
@@ -440,7 +439,7 @@ def plot_algorithm_efficiency(
         })
 
     if not all_metrics:
-        print("No valid data processed from result files.")
+        print("No valid data processed.")
         return
 
     metrics_df = pd.DataFrame(all_metrics)
@@ -449,58 +448,43 @@ def plot_algorithm_efficiency(
     algo_map = {'k_path_tree': 'Tree Search', 'k_path_beam': 'Beam Search', 'prob': 'Probabilistic'}
     comparison_df['algorithm'] = comparison_df['strategy'].map(algo_map)
 
-    if comparison_df.empty:
-        print("Error: No matching runs found between result files and the times CSV.")
-        return
+    # Define the 7 metrics for individual plots
+    plot_configs = [
+        ('total_paths', 'Total Successful Paths', 'Path Count'),
+        ('num_conversions_found', 'Unique Task Coverage', 'Unique Conversions Count'),
+        ('median_uniqueness', 'Median Solution Uniqueness', 'Median Cluster Count'),
+        ('median_uniformity_cv', 'Median Solution Uniformity', 'Median CV'),
+        ('median_avg_path_length', 'Median Average Path Length', 'Median Number of Drugs'),
+        ('median_best_progress', 'Median Best Path Progress', 'Median Progress (%)'),
+        ('overall_best_progress', 'Overall Top 1 Path Progress', 'Max Progress (%)')
+    ]
 
-    fig, axes = plt.subplots(7, 1, figsize=figsize, sharex=True)
-    fig.suptitle('Algorithm Efficiency Comparison (Performance vs. Time)', fontsize=16)
+    for col_y, title, label_y in plot_configs:
+        plt.figure(figsize=figsize)
+        
+        sns.scatterplot(
+            data=comparison_df, 
+            x='time_seconds', 
+            y=col_y, 
+            hue='algorithm', 
+            style='algorithm', 
+            s=120
+        )
+        
+        plt.title(f'{title} vs. Computation Time', fontsize=14)
+        plt.ylabel(label_y)
+        plt.xlabel('Computation Time (seconds)')
+        plt.grid(True, linestyle='--', alpha=0.6)
+        plt.legend(title='Algorithm', bbox_to_anchor=(1.05, 1), loc='upper left')
+        
+        plt.tight_layout()
+        
+        if show:
+            plt.show()
+        else:
+            plt.close()
 
-    sns.scatterplot(data=comparison_df, x='time_seconds', y='total_paths', hue='algorithm', style='algorithm', s=100, ax=axes[0])
-    axes[0].set_title("Quantity: Total Successful Paths Found")
-    axes[0].set_ylabel("Total Paths")
-    axes[0].grid(True, linestyle='--', alpha=0.6)
-
-    sns.scatterplot(data=comparison_df, x='time_seconds', y='num_conversions_found', hue='algorithm', style='algorithm', s=100, ax=axes[1])
-    axes[1].set_title("Breadth: Number of Unique Conversions Found")
-    axes[1].set_ylabel("Unique Conversions Count")
-    axes[1].grid(True, linestyle='--', alpha=0.6)
-
-    sns.scatterplot(data=comparison_df, x='time_seconds', y='median_uniqueness', hue='algorithm', style='algorithm', s=100, ax=axes[2])
-    axes[2].set_title("Quality: Median Solution Uniqueness (Higher is Better)")
-    axes[2].set_ylabel("Median # of Unique Drug Sets")
-    axes[2].grid(True, linestyle='--', alpha=0.6)
-
-    sns.scatterplot(data=comparison_df, x='time_seconds', y='median_uniformity_cv', hue='algorithm', style='algorithm', s=100, ax=axes[3])
-    axes[3].set_title("Quality: Median Solution Uniformity (Lower is Better)")
-    axes[3].set_ylabel("Median Coefficient of Variation")
-    axes[3].grid(True, linestyle='--', alpha=0.6)
-    
-    sns.scatterplot(data=comparison_df, x='time_seconds', y='median_avg_path_length', hue='algorithm', style='algorithm', s=100, ax=axes[4])
-    axes[4].set_title("Efficiency: Median Path Length (Lower is Better)")
-    axes[4].set_ylabel("Median Avg. Path Length")
-    axes[4].grid(True, linestyle='--', alpha=0.6)
-
-    sns.scatterplot(data=comparison_df, x='time_seconds', y='median_best_progress', hue='algorithm', style='algorithm', s=100, ax=axes[5])
-    axes[5].set_title("Quality: Median Best Path Progress (Higher is Better)")
-    axes[5].set_ylabel("Median Best Progress (%)")
-    axes[5].set_xlabel("Computation Time (seconds)")
-    axes[5].grid(True, linestyle='--', alpha=0.6)
-
-    sns.scatterplot(data=comparison_df, x='time_seconds', y='overall_best_progress', hue='algorithm', style='algorithm', s=100, ax=axes[6])
-    axes[6].set_title("Quality: Overall Top 1 Path Progress (Higher is Better)")
-    axes[6].set_ylabel("Overall Best Progress (%)")
-    axes[6].set_xlabel("Computation Time (seconds)")
-    axes[6].grid(True, linestyle='--', alpha=0.6)
-
-    for ax in axes:
-        ax.legend(title='Algorithm')
-
-    fig.tight_layout(rect=[0, 0, 1, 0.96])
-    if show:
-        plt.show()
-
-    return comparison_df, fig, axes
+    return comparison_df
 
 
 def _calculate_and_summarize_metrics(df: pd.DataFrame) -> pd.Series:
