@@ -1,4 +1,4 @@
-# RL_single_cell
+# RL single cell 🧬
 
 This repository contains code and analyses developed across multiple research threads, centered around (i) drug–gene target aggregation and validation, and (ii) computational search strategies for **cell-state conversion** in single-cell perturbation embedding spaces.
 
