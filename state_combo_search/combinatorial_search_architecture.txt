@@ -1,0 +1,46 @@
+state_combo_search/
+  __init__.py
+
+  data_loader.py
+    input = h5ad with all cells - embedded with SE model 
+    ouput = tensor embedding vectors for starting cell and target cell 
+      load_start_target_embeddings()
+      sample_cell_type_embeddings()
+      load_target_distribution()
+
+  converter.py
+    input = starting cell tensors
+    output = tensors for starting cells given all 11,000 drug perturbations 
+      StateSEConverter
+      convert_one()
+      convert_many()
+      list_perturbations()
+
+  scoring.py
+    input = 
+    output = 
+      score_to_target()
+      mmd_score()
+      mean_cosine_score()
+      centroid_l2_score()
+      covariance_penalty()
+
+  search.py
+    input = 
+    output = 
+      BeamSearchNode
+      beam_search()
+      topk_search()
+      constrained_search()
+
+  analysis.py
+    input = 
+    output = 
+      summarize_paths()
+      plot_embedding_trajectory()
+      save_ranked_paths()
+
+  run_beam_search.py
+    CLI wrapper
+
+
